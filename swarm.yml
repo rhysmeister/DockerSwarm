@@ -1,0 +1,89 @@
+---
+- hosts: all
+  gather_facts: yes
+  become: yes
+  vars:
+    manager_node: 192.168.44.101
+
+  tasks:
+
+    - name: Add docker repo
+      yum_repository:
+        name: docker
+        description: Docker CE Stable - $basearch
+        baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+        enabled: yes
+        gpgcheck: yes
+        gpgkey: https://download.docker.com/linux/centos/gpg
+
+    - name: Install docker
+      yum:
+        name: docker-ce
+
+    - name: Ensure docker service is started
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Ensure firewalld is started
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Open firewall ports
+      firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      with_items:
+        - 22/tcp    # ssh
+        - 2377/tcp  # docker cluster management communications
+        - 7946/tcp  # docker communication among nodes
+        - 7946/udp  # docker communication among nodes
+        - 4789/udp  # overlay network traffic
+
+    # There is a docker_swarm module but I'm doing this the hard way for
+    # the purposes of the Docker Exam (since it's likely the mention the terminal commands)
+    # https://docs.ansible.com/ansible/latest/modules/docker_swarm_module.html
+
+    - name: Initialise docker swarm cluster
+      shell: "docker swarm init --advertise-addr {{  ansible_eth1.ipv4.address }} && touch swarm.success"
+      args:
+        creates: swarm.success
+      when: manager_node == ansible_eth1.ipv4.address
+
+    - name: Get docker swarm join command for the workers
+      shell: docker swarm join-token worker
+      register: join_swarm
+      when: manager_node == ansible_eth1.ipv4.address
+
+    - debug:
+        var: join_swarm
+
+    - name: Join the workers to the cluster
+      shell: "{{ hostvars['docker1']['join_swarm'].stdout_lines[-1] }} && touch worker.success"
+      args:
+        creates: worker.success
+      when: manager_node != ansible_eth1.ipv4.address
+
+    - name: Add vargant to docker group
+      user:
+        name: vagrant
+        groups: docker
+        append: yes
+
+    - name: Get the state of the docker swarm cluster
+      shell: docker node ls
+      register: swarm_nodes
+      when: manager_node == ansible_eth1.ipv4.address
+
+    - name: Valid the docker swarm
+      assert:
+        that:
+          - "'docker1' in swarm_nodes.stdout"
+          - "'docker2' in swarm_nodes.stdout"
+          - "'docker3' in swarm_nodes.stdout"
+      when: manager_node == ansible_eth1.ipv4.address
