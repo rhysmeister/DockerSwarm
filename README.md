@@ -26,3 +26,12 @@ git clone https://github.com/rhysmeister/DockerSwarm.git
 cd DockerSwarm
 vagrant up
 ```
+
+Access the docker manager
+
+```
+vagrant ssh docker1
+docker node ls
+```
+
+SWMKEY-1-cjwvaP1ijjTvFofXVcUeLwwdpZqCxwRHp+oaGjk0tUo
