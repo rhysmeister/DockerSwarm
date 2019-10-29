@@ -16,6 +16,12 @@
         gpgcheck: yes
         gpgkey: https://download.docker.com/linux/centos/gpg
 
+    - name: Ensure firewalld is started before docker
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+
     - name: Install docker
       yum:
         name: docker-ce
@@ -23,12 +29,6 @@
     - name: Ensure docker service is started
       service:
         name: docker
-        state: started
-        enabled: yes
-
-    - name: Ensure firewalld is started
-      service:
-        name: firewalld
         state: started
         enabled: yes
 
