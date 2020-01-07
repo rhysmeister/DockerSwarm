@@ -61,3 +61,34 @@ Remove the service
 ```
 docker service rm nginx_service
 ```
+
+Lock the Swarm
+
+```
+docker swarm update --autolock=true
+```
+Take a note of the Swarm key the restart the service
+
+```
+systemctl restart docker
+```
+
+Then
+
+```
+docker node ls
+```
+
+> Error response from daemon: Swarm is encrypted and needs to be unlocked before it can be used. Please use "docker swarm unlock" to unlock it.
+
+Unlock the cluster (need to provide the swarm key when prompted)
+
+```
+docker swarm unlock
+```
+
+Then...
+
+```
+docker node ls
+```
