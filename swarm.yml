@@ -50,7 +50,7 @@
     # https://docs.ansible.com/ansible/latest/modules/docker_swarm_module.html
 
     - name: Initialise docker swarm cluster
-      shell: "docker swarm init --advertise-addr {{  ansible_eth1.ipv4.address }} && touch swarm.success"
+      shell: "docker swarm init --advertise-addr {{  ansible_eth1.ipv4.address }} --listen-addr {{  ansible_eth1.ipv4.address }} && touch swarm.success"
       args:
         creates: swarm.success
       when: manager_node == ansible_eth1.ipv4.address
