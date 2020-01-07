@@ -1,5 +1,5 @@
 Vagrant.configure("2") do |config|
-  HOSTS=3
+  HOSTS=6
   (1..HOSTS).each do |swarm_node|
     node_name = "docker#{swarm_node}"
     config.vm.define node_name do |cnode|

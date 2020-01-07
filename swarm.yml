@@ -3,7 +3,14 @@
   gather_facts: yes
   become: yes
   vars:
-    manager_node: 192.168.44.101
+    manager_nodes:
+      - 192.168.44.101
+      - 192.168.44.102
+      - 192.168.44.103
+    worker_nodes:
+      - 192.168.44.104
+      - 192.168.44.105
+      - 192.168.44.106
 
   tasks:
 
@@ -53,22 +60,37 @@
       shell: "docker swarm init --advertise-addr {{  ansible_eth1.ipv4.address }} --listen-addr {{  ansible_eth1.ipv4.address }} && touch swarm.success"
       args:
         creates: swarm.success
-      when: manager_node == ansible_eth1.ipv4.address
+      when: manager_nodes|first == ansible_eth1.ipv4.address
+
+    - name: Get docker swarm join command for the managers
+      shell: docker swarm join-token manager
+      register: join_swarm_manager
+      when: manager_nodes|first == ansible_eth1.ipv4.address
 
     - name: Get docker swarm join command for the workers
       shell: docker swarm join-token worker
-      register: join_swarm
-      when: manager_node == ansible_eth1.ipv4.address
+      register: join_swarm_worker
+      when: manager_nodes|first == ansible_eth1.ipv4.address
 
     - debug:
-        var: join_swarm
+        var: join_swarm_manager
+
+      # cmd is the last line of the stdout_lines list from the docker1 host
+    - name: Join the other managers to the cluster
+      shell: "{{ hostvars['docker1']['join_swarm_manager'].stdout_lines[-1] }} && touch manager.success"
+      args:
+        creates: manager.success
+      when: ansible_eth1.ipv4.address in manager_nodes[-2:]
+
+    - debug:
+        var: join_swarm_worker
 
       # cmd is the last line of the stdout_lines list from the docker1 host
     - name: Join the workers to the cluster
-      shell: "{{ hostvars['docker1']['join_swarm'].stdout_lines[-1] }} && touch worker.success"
+      shell: "{{ hostvars['docker1']['join_swarm_worker'].stdout_lines[-1] }} && touch worker.success"
       args:
         creates: worker.success
-      when: manager_node != ansible_eth1.ipv4.address
+      when: ansible_eth1.ipv4.address in worker_nodes
 
     - name: Add vargant to docker group
       user:
@@ -79,7 +101,7 @@
     - name: Get the state of the docker swarm cluster
       shell: docker node ls
       register: swarm_nodes
-      when: manager_node == ansible_eth1.ipv4.address
+      when: manager_nodes|first == ansible_eth1.ipv4.address
 
     - name: Validate the docker swarm
       assert:
@@ -87,4 +109,7 @@
           - "'docker1' in swarm_nodes.stdout"
           - "'docker2' in swarm_nodes.stdout"
           - "'docker3' in swarm_nodes.stdout"
-      when: manager_node == ansible_eth1.ipv4.address
+          - "'docker4' in swarm_nodes.stdout"
+          - "'docker5' in swarm_nodes.stdout"
+          - "'docker6' in swarm_nodes.stdout"
+      when: manager_nodes|first == ansible_eth1.ipv4.address
